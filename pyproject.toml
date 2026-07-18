@@ -5,9 +5,17 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.139.2",
+    "httpx>=0.28.1",
     "matplotlib>=3.10.9",
+    "onnx>=1.22.0",
+    "onnxruntime>=1.27.0",
+    "onnxscript>=0.7.1",
     "opencv-python>=4.13.0.92",
     "pillow>=12.2.0",
+    "pytest>=9.1.1",
+    "python-multipart>=0.0.27",
     "torch>=2.11.0",
     "torchvision>=0.26.0",
+    "uvicorn[standard]>=0.46.0",
 ]

@@ -34,7 +34,7 @@ def plot_sample(image_path):
         with z.open(image_path) as f:
             img = Image.open(io.BytesIO(f.read()))
             img_np = np.array(img)
-            print(f"Resolução da Imagem: {img_np.shape[1]}x{img_np.shape[0]}")
+            print(f"Image resolution: {img_np.shape[1]}x{img_np.shape[0]}")
     
     fig, ax = plt.subplots(1, 1, figsize=(15, 15))
     ax.imshow(img)
@@ -54,12 +54,12 @@ def plot_sample(image_path):
             polygons = get_poly_coords(feat['geometry'])
             for coords in polygons:
                 all_coords.extend(coords)
-                # Plotando com linha bem fina para ver a densidade real
+                # Plotting with a thin line to see the real density
                 poly = patches.Polygon(coords, linewidth=0.5, edgecolor='lime', facecolor='none', alpha=0.8)
                 ax.add_patch(poly)
                 count += 1
         
-        # Check de Coordenadas
+        # Coordinate check
         if all_coords:
             all_coords = np.array(all_coords)
             min_x, min_y = all_coords.min(axis=0)
@@ -68,7 +68,7 @@ def plot_sample(image_path):
             print(f"Range Y no GeoJSON: {min_y:.1f} a {max_y:.1f}")
             
             if max_x > img_np.shape[1] or max_y > img_np.shape[0]:
-                print("⚠️ ALERTA: Coordenadas do GeoJSON extrapolam o tamanho da imagem!")
+                print("⚠️ WARNING: GeoJSON coordinates exceed the image size!")
 
         plt.title(f"{image_id} | Nuclei: {count}")
     except Exception as e:

@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./checkpoints:/models:ro
+    environment:
+      - PUMA_CHECKPOINT_DIR=/models
+    restart: unless-stopped
+
+# Prometheus + Grafana come in Phase 4 (observability) — not part of this
+# compose file yet, to keep phases from bleeding into each other.

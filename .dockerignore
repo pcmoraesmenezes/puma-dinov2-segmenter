@@ -1,0 +1,13 @@
+.git
+.venv
+__pycache__
+*.pyc
+puma/
+checkpoints/
+visualizations/
+research/
+logs/
+optimization/
+.pytest_cache
+*.md
+linkedin_post.txt

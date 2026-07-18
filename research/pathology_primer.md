@@ -1,44 +1,44 @@
-# 🔬 Guia de Domínio: Histopatologia e Coloração H&E
+# 🔬 Domain Guide: Histopathology and H&E Staining
 
-Este documento serve como referência rápida para entender as nuances visuais do dataset PUMA e as bases da patologia digital.
+This document serves as a quick reference for understanding the visual nuances of the PUMA dataset and the fundamentals of digital pathology.
 
-## 🔴 1. Coloração H&E (Hematoxilina e Eosina)
-A coloração H&E é o padrão ouro na medicina para visualização de estruturas teiduais. Ela funciona através da afinidade química de dois corantes:
+## 🔴 1. H&E Staining (Hematoxylin and Eosin)
+H&E staining is the gold standard in medicine for visualizing tissue structures. It works through the chemical affinity of two dyes:
 
-| Corante | Cor Visual | Afinidade | O que representa na imagem? |
+| Dye | Visual Color | Affinity | What it represents in the image? |
 | :--- | :--- | :--- | :--- |
-| **Hematoxilina** | Roxo / Azul Escuro | Ácidos (DNA/RNA) | **Núcleos celulares**. Quanto mais roxo, mais densa é a atividade genética. |
-| **Eosina** | Rosa / Vermelho | Proteínas (Citoplasma) | **Corpo celular e Estroma**. Representa o suporte do tecido e o interior das células. |
+| **Hematoxylin** | Purple / Dark Blue | Acids (DNA/RNA) | **Cell nuclei**. The more purple, the denser the genetic activity. |
+| **Eosin** | Pink / Red | Proteins (Cytoplasm) | **Cell body and Stroma**. Represents the tissue's support structure and the inside of cells. |
 
 ---
 
-## 🔎 2. Elementos-Chave no Dataset PUMA
+## 🔎 2. Key Elements in the PUMA Dataset
 
-### A. Núcleos (Nuclei)
-- **Aparência:** Pequenas estruturas ovais ou circulares em tons de roxo.
-- **Melanoma:** Células tumorais de melanoma possuem núcleos **grandes, pleomórficos** (formatos variados) e nucléolos evidentes.
-- **TILs (Linfócitos):** São núcleos muito pequenos, densos e perfeitamente redondos. São o foco de estudo da resposta imune.
+### A. Nuclei
+- **Appearance:** small oval or circular structures in shades of purple.
+- **Melanoma:** melanoma tumor cells have **large, pleomorphic** nuclei (varied shapes) with prominent nucleoli.
+- **TILs (Lymphocytes):** very small, dense, perfectly round nuclei. They are the focus of the immune response study.
 
-### B. Tecido e Estroma
-- **Tumor:** Áreas densas de células "bagunçadas".
-- **Estroma:** O "tecido de suporte" (colágeno). Geralmente aparece como um rosa mais fibroso e menos denso que o tumor.
-- **Necrose:** Áreas onde as células morreram. Perdem a definição dos núcleos (o roxo desaparece) e fica apenas um "borrão" rosa/vermelho.
-
----
-
-## 📏 3. Escala e Resolução
-
-- **40x Magnification:** É uma resolução muito alta. Permite ver detalhes internos do núcleo.
-- **Microns vs Pixels:** Em patologia, o tamanho físico (microns) é o que importa para o médico. Para a IA, trabalhamos em pixels.
-- **Patch Size (DINOv2):** O DinoV2 usa patches de **14x14**. Em 40x, um patch de 14x14 pode conter um núcleo inteiro ou apenas parte dele. Isso é crucial para a segmentação de instâncias.
+### B. Tissue and Stroma
+- **Tumor:** dense areas of "messy" cells.
+- **Stroma:** the "support tissue" (collagen). Usually appears as a more fibrous, less dense pink than the tumor.
+- **Necrosis:** areas where cells have died. They lose nucleus definition (the purple disappears), leaving just a pink/red "smudge."
 
 ---
 
-## ⚠️ 4. Armadilhas Comuns para o Cientista de Dados
+## 📏 3. Scale and Resolution
 
-1. **Variação de Coloração:** Diferentes laboratórios usam diferentes concentrações de H&E. Isso gera imagens mais "rosadas" ou mais "azuladas". O modelo precisa ser robusto a isso (**Color Augmentation** será necessária).
-2. **Artefatos:** Dobras no tecido, bolhas de ar na lâmina ou sujeira podem parecer estruturas biológicas.
-3. **Sobreposição:** Em áreas densas de tumor, os núcleos ficam uns sobre os outros. A IA precisa aprender a separar o que o olho humano às vezes vê como uma massa única.
+- **40x Magnification:** a very high resolution. Allows seeing internal details of the nucleus.
+- **Microns vs. Pixels:** in pathology, physical size (microns) is what matters to the doctor. For AI, we work in pixels.
+- **Patch Size (DINOv2):** DinoV2 uses **14x14** patches. At 40x, a 14x14 patch can contain an entire nucleus or just part of it. This is crucial for instance segmentation.
+
+---
+
+## ⚠️ 4. Common Pitfalls for the Data Scientist
+
+1. **Staining variation:** different labs use different H&E concentrations. This produces more "pinkish" or more "bluish" images. The model needs to be robust to this (**Color Augmentation** will be necessary).
+2. **Artifacts:** tissue folds, air bubbles on the slide, or dirt can look like biological structures.
+3. **Overlap:** in dense tumor areas, nuclei sit on top of each other. The AI needs to learn to separate what the human eye sometimes sees as a single mass.
 
 > [!TIP]
-> **Regra de Ouro:** Se você vir um ponto roxo redondo e isolado no meio do rosa, provavelmente é um Linfócito (TIL). Se vir uma massa roxa grande e disforme, é tumor.
+> **Golden Rule:** if you see an isolated round purple dot in the middle of the pink, it's probably a Lymphocyte (TIL). If you see a large, misshapen purple mass, it's tumor.

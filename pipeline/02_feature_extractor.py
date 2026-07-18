@@ -1,6 +1,7 @@
 import zipfile
 import json
 import os
+import sys
 import cv2
 import numpy as np
 from PIL import Image
@@ -9,21 +10,21 @@ from tqdm import tqdm
 import torch
 import torchvision.transforms as T
 
-# Configurações de Caminho
-BASE_PATH = "/home/paulo/Área de Trabalho/repo-pessoal/puma-dinov2-segmenter/puma"
-ROIS_ZIP = os.path.join(BASE_PATH, "ROIs.zip")
-NUCLEI_ZIP = os.path.join(BASE_PATH, "nuclei.geojson.zip")
-TISSUE_ZIP = os.path.join(BASE_PATH, "tissue.geojson.zip")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.logger import get_logger
+from config import ROIS_ZIP, NUCLEI_ZIP, TISSUE_ZIP, MASK_TISSUE_DIR, MASK_NUCLEI_DIR, FEATURES_DIR
 
-OUTPUT_MASK_TISSUE = os.path.join(BASE_PATH, "masks/tissue")
-OUTPUT_MASK_NUCLEI = os.path.join(BASE_PATH, "masks/nuclei")
-OUTPUT_FEATURES = os.path.join(BASE_PATH, "features")
+logger = get_logger(__name__)
+
+OUTPUT_MASK_TISSUE = MASK_TISSUE_DIR
+OUTPUT_MASK_NUCLEI = MASK_NUCLEI_DIR
+OUTPUT_FEATURES = FEATURES_DIR
 
 os.makedirs(OUTPUT_MASK_TISSUE, exist_ok=True)
 os.makedirs(OUTPUT_MASK_NUCLEI, exist_ok=True)
 os.makedirs(OUTPUT_FEATURES, exist_ok=True)
 
-# Mapeamento de Classes
+# Class Mapping
 TISSUE_MAPPING = {
     'tissue_white_background': 0,
     'tissue_stroma': 1,
@@ -41,23 +42,23 @@ NUCLEI_MAPPING = {
 
 # --- DinoV2 Setup ---
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"🖥️ Usando dispositivo: {DEVICE}")
+logger.info(f"Using device: {DEVICE}")
 
-# Carregando modelo DINOv2
+# Loading DINOv2 model
 MODEL_NAME = "dinov2_vits14"
 model = torch.hub.load('facebookresearch/dinov2', MODEL_NAME)
 model.to(DEVICE)
 model.eval()
 
-# DinoV2 exige múltiplos de 14. 1024 não é. 14 * 74 = 1036.
-# Redimensionaremos para 1036 para manter a resolução próxima.
+# DinoV2 requires multiples of 14. 1024 isn't. 14 * 74 = 1036.
+# We resize to 1036 to keep the resolution close.
 TRANSFORM = T.Compose([
     T.Resize((1036, 1036)),
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
 
-# --- Funções de Rasterização ---
+# --- Rasterization functions ---
 
 def get_poly_coords(geom):
     if geom['type'] == 'Polygon':
@@ -83,7 +84,7 @@ def create_mask(geojson_data, shape, mapping, is_nuclei=False):
 # --- Loop Principal ---
 
 def process_all():
-    print("🚀 Iniciando Extração de Features e Máscaras...")
+    logger.info("Starting feature extraction and mask generation...")
     
     with zipfile.ZipFile(ROIS_ZIP, 'r') as z_rois, \
          zipfile.ZipFile(NUCLEI_ZIP, 'r') as z_nuclei, \
@@ -94,10 +95,9 @@ def process_all():
         for tif_path in tqdm(tifs, desc="Processando ROIs"):
             image_id = os.path.basename(tif_path).replace(".tif", "")
             
-            # --- 1. Extração de Features ---
+            # --- 1. Feature Extraction ---
             feature_path = os.path.join(OUTPUT_FEATURES, f"{image_id}.pt")
             
-            # Pula se já existir (Resume capability)
             if not os.path.exists(feature_path):
                 with z_rois.open(tif_path) as f:
                     img = Image.open(io.BytesIO(f.read())).convert("RGB")
@@ -106,22 +106,27 @@ def process_all():
                     input_tensor = TRANSFORM(img).unsqueeze(0).to(DEVICE)
                     
                     with torch.no_grad():
-                        # DinoV2 forward_features retorna um dicionário com 'x_norm_patchtokens' entre outros
-                        # Para segmentação, queremos os patch tokens (B, L, C)
+                        # DinoV2 forward_features returns a dict with 'x_norm_patchtokens' among others
+                        # For segmentation, we want the patch tokens (B, L, C)
+                        # Batch -> how many images are being processed simultaneously
+                        # Length -> number of patches (74*74 = 5476)
+                        # Channels -> embedding dimension (384 for vit-s/14)
+                        
                         out = model.get_intermediate_layers(input_tensor, n=1)[0]
-                        # Reshape de (1, 74*74, 384) para (1, 384, 74, 74)
+                        # Reshape from (1, 74*74, 384) to (1, 384, 74, 74)
                         b, l, c = out.shape
                         patch_h = patch_w = int(l**0.5)
                         features = out.reshape(b, patch_h, patch_w, c).permute(0, 3, 1, 2)
                         
                         torch.save(features.cpu(), feature_path)
+                        logger.debug(f"Features saved: {feature_path}")
             else:
-                # Se feature já existe, apenas pega o tamanho original da imagem para as máscaras
+                logger.debug(f"Features already cached, skipping DINOv2: {image_id}")
                 with z_rois.open(tif_path) as f:
                     img = Image.open(io.BytesIO(f.read()))
                     orig_width, orig_height = img.size
 
-            # --- 2. Geração de Máscaras (Se não existirem) ---
+            # --- 2. Mask Generation (if they don't exist) ---
             tissue_mask_path = os.path.join(OUTPUT_MASK_TISSUE, f"{image_id}.png")
             if not os.path.exists(tissue_mask_path):
                 tissue_geojson = f"01_training_dataset_geojson_tissue/{image_id}_tissue.geojson"
@@ -144,4 +149,4 @@ def process_all():
 
 if __name__ == "__main__":
     process_all()
-    print("✅ Extração concluída.")
+    logger.info("Extraction complete.")

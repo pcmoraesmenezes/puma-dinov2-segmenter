@@ -1,6 +1,15 @@
 # dataset directory
 puma/
 
+# model artifacts — regenerate via pipeline/05_train.py, optimization/distillation.py,
+# optimization/export_onnx.py. Not committed: large binaries, easy to regenerate,
+# and serving already mounts these via volume rather than baking them into the image.
+checkpoints/
+
+# large sample prediction images from pipeline/06_inference.py — regeneratable,
+# not a documented deliverable (unlike the study charts, which stay tracked)
+visualizations/predictions/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
