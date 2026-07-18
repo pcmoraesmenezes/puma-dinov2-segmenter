@@ -28,6 +28,52 @@ We leverage the official **PUMA (Panoptic segmentation of nUclei and tissue in M
 *   **Context ROIs:** 5120x5120 pixel patches for global tissue architecture.
 *   **Expert Annotations:** Fine-grained GeoJSON labels for nuclei (instance) and tissue (semantic) classes.
 
+---
+
+## 🏛️ Architecture
+
+Frozen DINOv2 ViT-S/14 backbone + a lightweight trained head (tissue + nuclei segmentation). Full write-up of the architecture decisions, the training pipeline, and a model compression study (validating Chip Huyen's *Designing Machine Learning Systems* against a real CPU-only deployment target) lives in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+The production path serves a **knowledge-distilled student backbone** (16x smaller than DINOv2, 1.3M params) instead of the original — it's the only configuration that meets the deployment's sub-1-second latency budget without sacrificing too much accuracy. See ARCHITECTURE.md, Section 7, for the full comparison across six compression techniques.
+
+---
+
+## 🚀 Running the API
+
+Requires Docker and Docker Compose. The two model checkpoints (`best_linear_probe.pt`, `student_backbone.pt`) are not committed to the repo — they're regeneratable binaries (train via `pipeline/05_train.py`, distill via `optimization/distillation.py`) — so point `PUMA_MODELS_HOST_DIR` at wherever you keep them, or drop them in `./checkpoints/` for the default.
+
+```bash
+# from the repo root, with checkpoints in ./checkpoints/
+docker compose up -d --build
+```
+
+This starts three services:
+
+| Service | Port | What it is |
+|---|---|---|
+| `api` | `8080` | The FastAPI serving layer |
+| `prometheus` | `9090` | Metrics scraping + alerting |
+| `grafana` | `3000` | Dashboards (default login `admin` / `admin` — change it) |
+
+## 📡 API Reference
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/predict` | Multipart image upload → JSON with `tissue_mask_png_base64`, `nuclei_mask_png_base64` (both base64-encoded PNGs), `inference_time_seconds`, and `model`. |
+| `GET` | `/health` | `{"status": "ok", "model_loaded": true}` — used by Docker's own healthcheck. |
+| `GET` | `/metrics` | Prometheus exposition format — request counts by endpoint/status, latency histogram. |
+
+```bash
+curl -X POST http://localhost:8080/predict -F "file=@sample.png"
+```
+
+## 📈 Monitoring
+
+Prometheus scrapes `/metrics` every 15s; Grafana is pre-provisioned with a dashboard covering request rate, `/predict` latency (p50/p95/p99), and error rate — no manual setup after `docker compose up`. Two alert rules watch the numbers that actually matter for this project: error rate above 5%, and `/predict` p95 latency breaking the 1s deployment budget.
+
+![Grafana dashboard](visualizations/grafana_dashboard.png)
+
+---
 
 ## 📜 Acknowledgments
 
