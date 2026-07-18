@@ -13,6 +13,7 @@ dependencies = [
     "onnxscript>=0.7.1",
     "opencv-python>=4.13.0.92",
     "pillow>=12.2.0",
+    "prometheus-client>=0.21.0",
     "pytest>=9.1.1",
     "python-multipart>=0.0.27",
     "torch>=2.11.0",

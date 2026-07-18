@@ -1,9 +1,14 @@
-"""PUMA model serving API — Phase 1 of the Deploy DinoV2 epic.
+"""PUMA model serving API — Phases 1 and 4 of the Deploy DinoV2 epic.
 
 Serves the distilled student (not the original DINOv2) + the trained head, the
 only combination that meets the latency DoD (<1s) confirmed by the compression
 study on 2026-07-17. Swapping models is as simple as swapping
 STUDENT_CHECKPOINT_PATH once a more thoroughly trained version is ready.
+
+/metrics exposes real Prometheus metrics (request count by status, latency
+histogram) via a middleware that wraps every route — not just /predict — so
+request rate, error rate, and latency percentiles are all derivable in Grafana
+with plain PromQL (rate(), histogram_quantile()).
 """
 import base64
 import io
@@ -13,8 +18,10 @@ import time
 from contextlib import asynccontextmanager
 
 import torch
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from starlette.middleware.base import BaseHTTPMiddleware
 from PIL import Image
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -29,6 +36,30 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 STATE = {}
+
+REQUEST_COUNT = Counter(
+    "http_requests_total", "Total HTTP requests", ["endpoint", "status"]
+)
+REQUEST_LATENCY = Histogram(
+    "http_request_latency_seconds", "Request latency in seconds", ["endpoint"],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 5.0),
+)
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Times and counts every request by path + status — one place, all routes."""
+
+    async def dispatch(self, request: Request, call_next):
+        start = time.time()
+        status_code = 500
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        finally:
+            elapsed = time.time() - start
+            REQUEST_LATENCY.labels(endpoint=request.url.path).observe(elapsed)
+            REQUEST_COUNT.labels(endpoint=request.url.path, status=status_code).inc()
 
 
 def load_serving_bundle():
@@ -57,13 +88,13 @@ async def lifespan(app: FastAPI):
     STATE["head"] = head
     STATE["device"] = device
     STATE["transform"] = make_transform(BACKBONE_INPUT_SIZE)
-    STATE["request_count"] = 0
     logger.info("Model ready to serve.")
     yield
     STATE.clear()
 
 
 app = FastAPI(title="PUMA DinoV2 Segmenter API", lifespan=lifespan)
+app.add_middleware(MetricsMiddleware)
 
 
 def mask_to_base64_png(mask_tensor: torch.Tensor) -> str:
@@ -81,13 +112,7 @@ def health():
 
 @app.get("/metrics")
 def metrics():
-    count = STATE.get("request_count", 0)
-    body = (
-        "# HELP predict_requests_total Total number of /predict calls\n"
-        "# TYPE predict_requests_total counter\n"
-        f"predict_requests_total {count}\n"
-    )
-    return PlainTextResponse(body)
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/predict")
@@ -108,8 +133,6 @@ async def predict(file: UploadFile = File(...)):
         features = STATE["student"](tensor)
         outputs = STATE["head"](features, upscale=True)
     elapsed = time.time() - start
-
-    STATE["request_count"] += 1
 
     return JSONResponse({
         "tissue_mask_png_base64": mask_to_base64_png(outputs["tissue"]),

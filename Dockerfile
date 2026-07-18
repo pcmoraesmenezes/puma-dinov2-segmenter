@@ -12,7 +12,7 @@ WORKDIR /app
 RUN uv pip install --system --no-cache \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     torch torchvision \
-    fastapi "uvicorn[standard]" python-multipart pillow
+    fastapi "uvicorn[standard]" python-multipart pillow prometheus-client
 
 # ---- Runtime stage ----
 FROM python:3.12-slim AS runtime

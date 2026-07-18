@@ -57,7 +57,13 @@ def test_predict_rejects_invalid_file(client):
     assert resp.status_code == 400
 
 
-def test_metrics_counts_requests(client):
-    resp_before = client.get("/metrics")
-    assert resp_before.status_code == 200
-    assert "predict_requests_total" in resp_before.text
+def test_metrics_exposes_prometheus_format(client):
+    # Generates at least one /predict sample so the histogram has real data
+    files = {"file": ("test.png", _dummy_image_bytes(), "image/png")}
+    client.post("/predict", files=files)
+
+    resp = client.get("/metrics")
+    assert resp.status_code == 200
+    assert "http_requests_total" in resp.text
+    assert "http_request_latency_seconds" in resp.text
+    assert 'endpoint="/predict"' in resp.text

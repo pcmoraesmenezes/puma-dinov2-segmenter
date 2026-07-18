@@ -1,0 +1,27 @@
+groups:
+  - name: puma-api-alerts
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error rate above 5% for 5 minutes"
+          description: "More than 5% of requests are returning 5xx over the last 5 minutes."
+
+      - alert: PredictLatencyAboveDoD
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_latency_seconds_bucket{endpoint="/predict"}[5m])) by (le)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "/predict p95 latency above the 1s DoD"
+          description: "p95 latency for /predict has been above 1 second for 5 minutes — the deploy epic's latency budget is being violated in production."
