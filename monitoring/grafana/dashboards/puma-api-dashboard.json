@@ -64,7 +64,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "fieldConfig": {
-        "defaults": { "unit": "percentunit", "min": 0 },
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
         "overrides": []
       },
       "targets": [
