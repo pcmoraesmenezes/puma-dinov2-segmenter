@@ -1,0 +1,42 @@
+name: Deploy PUMA Segmenter API
+
+# SECURITY: push-only trigger, on purpose. This repo is public and runs on a
+# self-hosted runner (pc-servidor) — a `pull_request`/`pull_request_target`
+# trigger would let anyone fork the repo and run code on that machine via a PR.
+# Only add such a trigger after re-reading this comment and enabling
+# "Require approval for all outside collaborators" in repo Settings > Actions.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    env:
+      # Stable path OUTSIDE the git checkout — checkpoints/ is gitignored
+      # (large, regeneratable binaries) so it doesn't exist after `checkout`.
+      PUMA_MODELS_HOST_DIR: /home/pcmoraes/puma-models
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and restart the API container
+        run: docker compose up -d --build
+
+      - name: Wait for the API to become healthy
+        run: |
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:8080/health; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "Waiting for API... ($i/10)"
+            sleep 3
+          done
+          echo "API failed to become healthy in time"
+          docker compose logs --tail 50
+          exit 1
+
+      - name: Clean up dangling images
+        run: docker image prune -f

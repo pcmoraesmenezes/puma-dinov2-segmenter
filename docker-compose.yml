@@ -4,7 +4,10 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./checkpoints:/models:ro
+      # Defaults to ./checkpoints for local dev. On the server, PUMA_MODELS_HOST_DIR
+      # points to a stable path OUTSIDE the git checkout — checkpoints/ is gitignored
+      # (large, regeneratable binaries), so it's empty right after `git checkout`/CI.
+      - ${PUMA_MODELS_HOST_DIR:-./checkpoints}:/models:ro
     environment:
       - PUMA_CHECKPOINT_DIR=/models
     restart: unless-stopped
